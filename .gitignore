@@ -1,3 +1,4 @@
 vr
 *.log
 *.vscode
+.vrmanager
