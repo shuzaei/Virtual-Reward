@@ -7,6 +7,8 @@
 #include <map>
 #include <vector>
 
+#define DEBUG
+
 namespace VRManager
 {
     enum Color
@@ -14,7 +16,8 @@ namespace VRManager
         bronze,
         silver,
         gold,
-        platinum
+        platinum,
+        none
     };
 
     std::ifstream historyIfstream;
@@ -28,17 +31,68 @@ namespace VRManager
     void Store(std::ostream &ostream, std::vector<std::string> command);
     void LoadHistory();
     void StoreCommand(std::vector<std::string> command);
+    bool Initialized();
     void PrintOpenManagerFailure(std::ostream &ostream);
     std::string Join(std::vector<std::string> stringVector, std::string joinString);
     std::vector<std::string> StringToCommand(std::string string);
     std::vector<std::string> ArgToCommand(int argc, char **argv);
     void Execute(std::vector<std::string> command, bool loadingHistory);
+    void Test();
 
-    std::string colorEscapeSequence[4] = {
-        "\e[37;41m",
-        "\e[30;47m",
-        "\e[37;43m",
-        "\e[37;46m"};
+    class VRData
+    {
+    private:
+        std::string name;
+        long long property = 0;
+        Color color = none;
+        std::vector<std::string> title;
+        std::map<std::string, long long> tasks;
+        std::map<int, long long> colors;
+        std::map<std::string, std::pair<int, long long>> titles;
+        int taskCount = 0;
+
+    public:
+        void SetName(std::string newName)
+        {
+            this->name = newName;
+        }
+        std::string GetName()
+        {
+            return this->name;
+        }
+        void SetColor(Color newColor)
+        {
+            this->color = newColor;
+        }
+        Color GetColor()
+        {
+            return this->color;
+        }
+        void SetProperty(long long newProperty)
+        {
+            this->property = newProperty;
+        }
+        long long GetProperty()
+        {
+            return this->property;
+        }
+        void IncrementTaskCount()
+        {
+            this->taskCount++;
+        }
+        int GetTaskCount()
+        {
+            return this->taskCount;
+        }
+    } data;
+
+    std::string colorEscapeSequence[5] = {
+        "\e[30;48;5;166m",
+        "\e[30;48;5;252m",
+        "\e[30;48;5;227m",
+        "\e[30;48;5;159m",
+        "\e[0m",
+    };
     std::string vrUsage = "Usage: vr <command>\n"
                           "Commands:\n"
                           "  init  Create user\n"
@@ -56,35 +110,14 @@ namespace VRManager
                             "  status  Show user details\n"
                             "  set     Set properties\n"
                             "  --help  Show usage\n";
-    std::string toManyArgs = "too many args\n";
-    std::string alreadyInitialized = "You've already initialized Virtual-Reward.\n";
+    std::string toManyArgs = "\e[1;31mError:\e[m Too many args.\n";
+    std::string alreadyInitialized = "\e[1;31mError:\e[m You've already initialized Virtual-Reward.\n";
+    std::string notYetInitialized = "\e[1;31mError:\e[m You've not initialized Virtual-Reward yet. Do first `vr init` to initialize.\n";
     std::string openManagerFailure = "\e[1;31mfatal:\e[m VRManager::StoreCommand: std::ofstream::open: cannot open file ~/.vrhistory\n";
-    std::string askReallyReset = "\e[1;31m? You're going to delete all history. Do you really want to reset?\e[0m (y/N) ";
+    std::string askReallyReset = "\e[1;31m! You're going to delete all history. Do you really want to reset?\e[0m (y/N) ";
     std::string historyPath = std::string(getenv("HOME")) + "/.vrhistory";
 
-    std::string WIP = "Work in Progress.";
-
-    class VRData
-    {
-    private:
-        std::string name;
-        long long r;
-        std::map<std::string, long long> tasks;
-        std::map<int, long long> colors;
-        std::map<std::string, std::pair<int, long long>> titles;
-
-    public:
-        std::string SetName(std::string newName)
-        {
-            std::string oldName = this->name;
-            this->name = newName;
-            return oldName;
-        }
-        std::string GetName()
-        {
-            return this->name;
-        }
-    } data;
+    std::string WIP = "Work in Progress.\n";
 
     std::string ColorString(std::string string, Color color)
     {
@@ -116,7 +149,8 @@ namespace VRManager
 
     void Store(std::ostream &ostream, std::vector<std::string> command)
     {
-        ostream << Join(command, "\n") << std::endl;
+        ostream << Join(command, "\n") << "\n"
+                << std::endl;
     }
 
     void LoadHistory()
@@ -146,10 +180,22 @@ namespace VRManager
         }
     }
 
+    bool Initialized()
+    {
+        std::ios_base::openmode openmode = std::ios_base::in;
+        historyIfstream.open(historyPath, openmode);
+        if (bool(historyIfstream) == true)
+        {
+            historyIfstream.close();
+            return true;
+        }
+        return false;
+    }
+
     std::string Join(std::vector<std::string> stringVector, std::string joinString)
     {
         std::string string;
-        for (unsigned int i = 1; i < stringVector.size(); i++)
+        for (unsigned int i = 0; i < stringVector.size(); i++)
         {
             string += stringVector[i];
             if (i != stringVector.size() - 1)
@@ -177,7 +223,7 @@ namespace VRManager
     {
         std::vector<std::string> command;
 
-        for (unsigned int i = 0; i < argc; i++)
+        for (unsigned int i = 1; i < argc; i++)
         {
             command.emplace_back((std::string)argv[i]);
         }
@@ -186,37 +232,42 @@ namespace VRManager
 
     void Execute(std::vector<std::string> command, bool loadingHistory)
     {
-        if (command.size() <= 1U)
+        if (command.size() <= 0U)
         {
             Print(std::cerr, vrUsage);
             exit(1);
         }
         else
         {
-            if (command[1] == "init")
+#ifdef DEBUG
+            if (command[0] == "test")
             {
-                if (command.size() <= 2U)
+                Test();
+                exit(0);
+            }
+#endif
+            if (command[0] == "init")
+            {
+                if (command.size() <= 1U)
                 {
                     Print(std::cerr, initUsage);
                     exit(1);
                 }
-                else if (command[2] == "--help")
+                if (command[1] == "--help")
                 {
                     Print(std::cout, initUsage);
                     exit(0);
                 }
-                else if (command.size() <= 3U)
+
+                if (command.size() <= 2U)
                 {
-                    std::ios_base::openmode openmode = std::ios_base::in;
-                    historyIfstream.open(historyPath, openmode);
-                    if (bool(historyIfstream) == true)
+                    if (Initialized() == true && loadingHistory == false)
                     {
-                        historyIfstream.close();
                         Print(std::cerr, alreadyInitialized);
                         exit(1);
                     }
 
-                    data.SetName(command[2]);
+                    data.SetName(command[1]);
                     if (loadingHistory == false)
                     {
                         StoreCommand(command);
@@ -229,26 +280,35 @@ namespace VRManager
                     exit(1);
                 }
             }
-            else if (command[1] == "user")
+            else if (command[0] == "user")
             {
-                if (command.size() <= 2U)
+                if (command.size() <= 1U)
                 {
                     Print(std::cerr, userUsage);
                     exit(1);
                 }
-                else if (command[2] == "status")
-                {
-                    Print(std::cout, WIP);
-                    exit(0);
-                }
-                else if (command[2] == "set")
-                {
-                    Print(std::cout, WIP);
-                    exit(0);
-                }
-                else if (command[2] == "--help")
+                if (command[1] == "--help")
                 {
                     Print(std::cout, userUsage);
+                    exit(0);
+                }
+                if (Initialized() == false)
+                {
+                    Print(std::cerr, notYetInitialized);
+                    exit(1);
+                }
+
+                if (command[1] == "status")
+                {
+                    std::string userName = "Username: " + ColorString(" " + data.GetName() + " ", data.GetColor()) + "\n";
+                    std::string property = "Property: " + std::to_string(data.GetProperty()) + "r\n";
+                    std::string taskCount = "Tasks:    " + std::to_string(data.GetTaskCount()) + " task(s) compreted\n";
+                    Print(std::cout, userName + property + taskCount);
+                    exit(0);
+                }
+                else if (command[1] == "set")
+                {
+                    Print(std::cout, WIP);
                     exit(0);
                 }
                 else
@@ -257,24 +317,40 @@ namespace VRManager
                     exit(1);
                 }
             }
-            else if (command[1] == "task")
+            else if (command[0] == "task")
             {
+                if (Initialized() == false)
+                {
+                    Print(std::cerr, notYetInitialized);
+                    exit(1);
+                }
                 Print(std::cout, WIP);
                 exit(0);
             }
-            else if (command[1] == "shop")
+            else if (command[0] == "shop")
             {
+                if (Initialized() == false)
+                {
+                    Print(std::cerr, notYetInitialized);
+                    exit(1);
+                }
                 Print(std::cout, WIP);
                 exit(0);
             }
-            else if (command[1] == "--help")
+            else if (command[0] == "--help")
             {
                 Print(std::cout, vrUsage);
                 exit(0);
             }
-            else if (command[1] == "reset")
+            else if (command[0] == "reset")
             {
+                if (Initialized() == false)
+                {
+                    Print(std::cerr, notYetInitialized);
+                    exit(1);
+                }
                 Print(std::cout, askReallyReset);
+
                 while (true)
                 {
                     std::string answer;
@@ -299,6 +375,15 @@ namespace VRManager
                 exit(1);
             }
         }
+    }
+
+    void Test()
+    {
+        using namespace std;
+        Print(cout, "Username: " + ColorString(" " + data.GetName() + " ", bronze) + "\n");
+        Print(cout, "Username: " + ColorString(" " + data.GetName() + " ", silver) + "\n");
+        Print(cout, "Username: " + ColorString(" " + data.GetName() + " ", gold) + "\n");
+        Print(cout, "Username: " + ColorString(" " + data.GetName() + " ", platinum) + "\n");
     }
 };
 
