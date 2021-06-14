@@ -302,7 +302,7 @@ namespace VRManager
                 {
                     std::string userName = "Username: " + ColorString(" " + data.GetName() + " ", data.GetColor()) + "\n";
                     std::string property = "Property: " + std::to_string(data.GetProperty()) + "r\n";
-                    std::string taskCount = "Tasks:    " + std::to_string(data.GetTaskCount()) + " task(s) compreted\n";
+                    std::string taskCount = "Tasks:    " + std::to_string(data.GetTaskCount()) + " task(s) completed\n";
                     Print(std::cout, userName + property + taskCount);
                     exit(0);
                 }
