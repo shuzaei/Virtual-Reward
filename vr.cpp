@@ -95,10 +95,10 @@ namespace VRManager
     };
     std::string vrUsage = "Usage: vr <command>\n"
                           "Commands:\n"
-                          "  init  Create user\n"
-                          "  user  Manage user\n"
-                          "  task  Manage tasks\n"
-                          "  shop  Buy and sell items\n"
+                          "  init    Create user\n"
+                          "  user    Manage user\n"
+                          "  task    Manage tasks\n"
+                          "  shop    Buy and sell items\n"
                           "  --help  Show usage\n";
     std::string initUsage = "Usage: vr init [subcommand] <username>\n"
                             "Discription:\n"
