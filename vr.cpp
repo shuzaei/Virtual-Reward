@@ -33,7 +33,8 @@ namespace VRManager
     void StoreCommand(std::vector<std::string> command);
     bool Initialized();
     void PrintOpenManagerFailure(std::ostream &ostream);
-    std::string Join(std::vector<std::string> stringVector, std::string joinString);
+    std::string Escape(std::string string);
+    std::string Decode(std::string string);
     std::vector<std::string> StringToCommand(std::string string);
     std::vector<std::string> ArgToCommand(int argc, char **argv);
     void Execute(std::vector<std::string> command, bool loadingHistory);
@@ -95,10 +96,10 @@ namespace VRManager
     };
     std::string vrUsage = "Usage: vr <command>\n"
                           "Commands:\n"
-                          "  init  Create user\n"
-                          "  user  Manage user\n"
-                          "  task  Manage tasks\n"
-                          "  shop  Buy and sell items\n"
+                          "  init    Create user\n"
+                          "  user    Manage user\n"
+                          "  task    Manage tasks\n"
+                          "  shop    Buy and sell items\n"
                           "  --help  Show usage\n";
     std::string initUsage = "Usage: vr init [subcommand] <username>\n"
                             "Discription:\n"
@@ -132,25 +133,20 @@ namespace VRManager
 
     void Load(std::istream &istream)
     {
-        std::string buffer, command;
-        while (std::getline(istream, buffer))
+        std::string command;
+        while (std::getline(istream, command))
         {
-            if (buffer == "")
-            {
-                Execute(StringToCommand(command), true);
-                command = "";
-            }
-            else
-            {
-                command += buffer + "\n";
-            }
+            Execute(StringToCommand(command), true);
         }
     }
 
     void Store(std::ostream &ostream, std::vector<std::string> command)
     {
-        ostream << Join(command, "\n") << "\n"
-                << std::endl;
+        for (std::string string : command)
+        {
+            ostream << Escape(string) << ' ';
+        }
+        ostream << std::endl;
     }
 
     void LoadHistory()
@@ -192,18 +188,58 @@ namespace VRManager
         return false;
     }
 
-    std::string Join(std::vector<std::string> stringVector, std::string joinString)
+    std::string Escape(std::string string)
     {
-        std::string string;
-        for (unsigned int i = 0; i < stringVector.size(); i++)
+        std::string escapedString;
+        for (char c : string)
         {
-            string += stringVector[i];
-            if (i != stringVector.size() - 1)
+            if (c == '\n')
             {
-                string += joinString;
+                escapedString += "+n";
+            }
+            else if (c == ' ')
+            {
+                escapedString += "+s";
+            }
+            else if (c == '+')
+            {
+                escapedString += "++";
+            }
+            else
+            {
+                escapedString += c;
             }
         }
-        return string;
+        return escapedString;
+    }
+
+    std::string Decode(std::string string)
+    {
+        std::string decodedString;
+        for (int i = 0; i < string.size(); i++)
+        {
+            if (string[i] == '+')
+            {
+                if (string[i + 1] == 'n')
+                {
+                    decodedString += '\n';
+                }
+                else if (string[i + 1] == 's')
+                {
+                    decodedString += ' ';
+                }
+                else
+                {
+                    decodedString += '+';
+                }
+                i++;
+            }
+            else
+            {
+                decodedString += string[i];
+            }
+        }
+        return decodedString;
     }
 
     std::vector<std::string> StringToCommand(std::string string)
@@ -213,8 +249,8 @@ namespace VRManager
 
         while (leftIterator != string.end())
         {
-            splitIterator = std::find(leftIterator, rightIterator, '\n');
-            command.emplace_back(std::string(leftIterator, splitIterator));
+            splitIterator = std::find(leftIterator, rightIterator, ' ');
+            command.emplace_back(Decode(std::string(leftIterator, splitIterator)));
             leftIterator = splitIterator + 1;
         }
         return command;
